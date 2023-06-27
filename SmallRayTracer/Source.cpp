@@ -6,9 +6,10 @@
 */
 #include <stdlib.h>
 #include <stdio.h>
+#include <vector>
 
-const int width = 500;
-const int height = 200;
+const int width = 255;
+const int height = 255;
 const int hWidth = width / 2;
 const int hHeight = height / 2;
 
@@ -29,6 +30,15 @@ vec3 cross(vec3 a, vec3 b) {
 	return { a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z,a.x * b.y - a.y * b.x };
 }
 
+float magnitude(vec3 a) {
+	return sqrtf(a.x * a.x + a.y * a.y + a.z * a.z);
+}
+vec3 normalize(vec3 a) {
+	float mag = magnitude(a);
+	return {a.x/mag,a.y/mag,a.z/mag};
+}
+
+
 struct Triangle{
 	// we have the point vector and its normal
 	vec3 p;
@@ -46,51 +56,158 @@ struct Triangle{
 	}
 
 };
-
-Triangle triangle{ {-1,-1,3},{0,1,3},{1,-1,3} };
+std::vector<Triangle> triangles;
 
 
 // i is width, j is height
-vec3 castRay(unsigned char* data, int i, int j) {
-	// casting towards the z direction
+//vec3 castRay(unsigned char* data, int i, int j) {
+//	// casting towards the z direction
+//
+//	vec3 dir = { (i-hWidth)/(float)width,-(j-hHeight)/(float)height,1};
+//	float t = dot(triangle.p, triangle.n) / dot(dir, triangle.n);
+//	vec3 I = { t * dir.x,t * dir.y,t * dir.z };
+//
+//	vec3 edge0 = triangle.p2-triangle.p1; vec3 edge1 = triangle.p3-triangle.p2; vec3 edge2 = triangle.p1-triangle.p3;
+//
+//	int index = j * width * 3 + i * 3;
+//	if (dot(triangle.n, cross(edge0, { I - triangle.p1})) > 0.0 &&
+//		dot(triangle.n, cross(edge1, { I - triangle.p2 })) > 0.0 &&
+//		dot(triangle.n, cross(edge2, { I - triangle.p3 })) > 0.0
+//	) {
+//		data[index + 0] = 255;
+//		data[index + 1] = 0;
+//		data[index + 2] = 0;
+//		return {255,0,0};
+//	}
+//	else {
+//		data[index + 0] = 0;
+//		data[index + 1] = 0;
+//		data[index + 2] = 0;
+//		return {0,0,0};
+//	}
+//}
 
-	vec3 dir = { (i-hWidth)/(float)width,-(j-hHeight)/(float)height,1};
-	float t = dot(triangle.p, triangle.n) / dot(dir, triangle.n);
-	vec3 I = { t * dir.x,t * dir.y,t * dir.z };
+struct PayLoad {
+	vec3 point;
+	vec3 color;
+	float distance;
+};
 
-	vec3 edge0 = triangle.p2-triangle.p1; vec3 edge1 = triangle.p3-triangle.p2; vec3 edge2 = triangle.p1-triangle.p3;
+PayLoad castRay(vec3 orgin, vec3 dir,int log) {
+	PayLoad closest = { {0,0,0},{0,0,0},100000000 };
+	bool found=false;
+	for (Triangle triangle : triangles) {
+		float t = dot(triangle.p1-orgin, triangle.n) / dot(dir, triangle.n);
+		if (log) {
+			printf("%f\n", t);
+		}
+		//printf("%f ", t);
+		vec3 I = { t * dir.x,t * dir.y,t * dir.z };
 
-	int index = j * width * 3 + i * 3;
-	if (dot(triangle.n, cross(edge0, { I - triangle.p1})) > 0.0 &&
-		dot(triangle.n, cross(edge1, { I - triangle.p2 })) > 0.0 &&
-		dot(triangle.n, cross(edge2, { I - triangle.p3 })) > 0.0
-	) {
-		data[index + 0] = 255;
-		data[index + 1] = 0;
-		data[index + 2] = 0;
-		return {255,0,0};
+
+		vec3 edge0 = triangle.p2 - triangle.p1; vec3 edge1 = triangle.p3 - triangle.p2; vec3 edge2 = triangle.p1 - triangle.p3;
+		if (dot(triangle.n, cross(edge0, { I - triangle.p1 })) > 0.0 &&
+			dot(triangle.n, cross(edge1, { I - triangle.p2 })) > 0.0 &&
+			dot(triangle.n, cross(edge2, { I - triangle.p3 })) > 0.0
+			) {
+			if (t < closest.distance) {
+				//printf("here\n");
+				closest = { I,{100,0,0},t };
+				found = true;
+			}
+		}
+		else {
+
+		}
+	}
+	if (found == true) {
+		return closest;
 	}
 	else {
-		data[index + 0] = 0;
-		data[index + 1] = 0;
-		data[index + 2] = 0;
-		return {0,0,0};
+		return { {0,0,0},{0,0,0},-1 };
 	}
+	
 }
 
 int main() {
-	
+
 	// 3 channels
-	unsigned char* data = (unsigned char*)malloc(sizeof(unsigned char) * width * height*3);
+	unsigned char* data = (unsigned char*)malloc(sizeof(unsigned char) * width * height * 3);
 	FILE* file = fopen("Image.ppm", "w");
-	fprintf(file,"P3\n");
-	fprintf(file, "%d %d\n255\n", width, height);
+	fprintf(file, "P3\n%d %d\n255\n", width, height);
+
+	//triangles.push_back(
+	//	{ {-1,-2,2},{0,-2,2},{0,-3,2} }
+	//);
+	//triangles.push_back(
+
+	//	{ {-1,-1,4},{0,2,4},{1,-1,4} }
+	//);
+	// this is not a triangle...
+	triangles.push_back(
+		{ {-10,-2,10},{0,-2,30},{10,-2,10} }
+	);
+	// this will cast the shadow
+	//triangles.push_back(
+
+	//	{ {-.5,1,4},{0,4,10},{.5,1,4} }
+	//);
+
+//	vec3 origin = { 0,0,0 };
+//	vec3 dir = normalize({ 0, 0, 5 });
+//	PayLoad hit = castRay(origin, dir, 0);
+//	printf("%f %f %f %f\n", hit.point.x, hit.point.y, hit.point.z, hit.distance);
+//	
+//	vec3 light = { 0,10,0 };
+//	dir = normalize({ light.x - hit.point.x, light.y - hit.point.y, light.z - hit.point.z });
+//	printf("%f %f %f\n", dir.x, dir.y, dir.z);
+//	hit = castRay(hit.point, dir,0);
+//	printf("%f %f %f %f\n", hit.point.x, hit.point.y, hit.point.z, hit.distance);
+//
+//}
 
 	for (int j = 0; j < height; j++) {
 		for (int i = 0; i < width; i++) {
 			int index = i * height * 3 + j * 3;
-			vec3 color = castRay(data, i, j);
-			fprintf(file,"%d %d %d\n", (int)color.x, (int)color.y, (int)color.z);
+			vec3 dir = normalize({ (i - hWidth) / (float)width, -(j - hHeight) / (float)height, 1 });
+			vec3 origin = { 0,0,-5 };
+			PayLoad hit = castRay(origin, dir,0);
+			// we now need to see if the pixel is visible to the light source(which is 0,0,10)
+			//printf("%d %d\n", i, j);
+			if (hit.distance > 0) {
+				//exit(1);
+				vec3 light = {0,10,4};
+				vec3 dir2 = normalize({ light.x - hit.point.x, light.y - hit.point.y, light.z - hit.point.z });
+				//dir2.x *= -1;
+				//dir2.y *= -1;
+				//dir2.z *= -1;
+				//vec3 dir2 = {};
+				PayLoad hit2 = castRay(hit.point, dir2,0);
+				if (j == 94 && i == 250) {
+					//printf("(%f %f %f)\n", dir2.x, dir2.y, dir2.z);
+					//fprintf(file, "0 0 255\n");
+					//continue;
+
+				}
+				//printf("%f %f %f %f %f %f\n", hit.point.x, hit.point.y, hit.point.z, dir2.x, dir2.y, dir2.z);
+				//printf("%f  ", hit2.distance);
+				// no obstructions
+				if (hit2.distance < 0) {
+					//fprintf(file, "%d %d %d\n", 255, 255, 255);
+				}
+				else {
+					//fprintf(file, "%d %d %d\n", (int)0, (int)255, (int)0);
+					printf("Hit\n");
+				}
+				float dist = magnitude(dir2);
+				//fprintf(file, "%d %d %d\n", (int)(255 * 1 / dist), (int)(255 * 1 / dist), (int)(255 * 1 / dist));
+				fprintf(file, "%d %d %d\n", i, j, 0);
+				
+			}
+			else {
+				fprintf(file, "%d %d %d\n", (int)0, (int)0, 0);
+			}
+			
 		}
 	}
 
@@ -98,3 +215,25 @@ int main() {
 	free(data);
 
 }
+
+
+//int main() {
+//	
+//	// 3 channels
+//	unsigned char* data = (unsigned char*)malloc(sizeof(unsigned char) * width * height*3);
+//	FILE* file = fopen("Image.ppm", "w");
+//	fprintf(file,"P3\n %d %d\n255\n",width,height);
+//
+//	for (int j = 0; j < height; j++) {
+//		for (int i = 0; i < width; i++) {
+//			int index = i * height * 3 + j * 3;
+//			vec3 color = castRay(data, i, j);
+//			fprintf(file,"%d %d %d\n", (int)color.x, (int)color.y, (int)color.z);
+//		}
+//	}
+//
+//	fclose(file);
+//	free(data);
+//
+//}
+
