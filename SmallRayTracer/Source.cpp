@@ -91,12 +91,20 @@ struct PayLoad {
 	vec3 point;
 	vec3 color;
 	float distance;
+	Triangle* cur;
+	bool didHit;
 };
 
-PayLoad castRay(vec3 orgin, vec3 dir,int log) {
-	PayLoad closest = { {0,0,0},{0,0,0},100000000 };
+PayLoad castRay(vec3 orgin, vec3 dir,int log, Triangle* curr) {
+	//printf("%p\n", curr);
+	PayLoad closest = { {0,0,0},{0,0,0},100000000,NULL ,false};
 	bool found=false;
-	for (Triangle triangle : triangles) {
+	for (Triangle& triangle : triangles) {
+		if (&triangle == curr) {
+			// skip the matched one
+			continue;
+		}
+		//printf("   %p\n", &triangle);
 		float t = dot(triangle.p1-orgin, triangle.n) / dot(dir, triangle.n);
 		if (log) {
 			printf("%f\n", t);
@@ -110,9 +118,9 @@ PayLoad castRay(vec3 orgin, vec3 dir,int log) {
 			dot(triangle.n, cross(edge1, { I - triangle.p2 })) > 0.0 &&
 			dot(triangle.n, cross(edge2, { I - triangle.p3 })) > 0.0
 			) {
-			if (t < closest.distance) {
+			if (t < closest.distance && t > 0) {
 				//printf("here\n");
-				closest = { I,{100,0,0},t };
+				closest = { I,{100,0,0},t ,&triangle,true};
 				found = true;
 			}
 		}
@@ -120,11 +128,12 @@ PayLoad castRay(vec3 orgin, vec3 dir,int log) {
 
 		}
 	}
+	return closest;
 	if (found == true) {
 		return closest;
 	}
 	else {
-		return { {0,0,0},{0,0,0},-1 };
+		return { {0,0,0},{0,0,0},-1 ,NULL,false};
 	}
 	
 }
@@ -137,15 +146,14 @@ int main() {
 	fprintf(file, "P3\n%d %d\n255\n", width, height);
 
 	//triangles.push_back(
-	//	{ {-1,-2,2},{0,-2,2},{0,-3,2} }
+	//	{ {-1,-1,3},{0,1,3},{1,-1,3} }
 	//);
 	//triangles.push_back(
-
-	//	{ {-1,-1,4},{0,2,4},{1,-1,4} }
+	//	{ {-.5,-.5,-5},{0,.5,-5},{.5,-.5,-5} }
 	//);
 	// this is not a triangle...
 	triangles.push_back(
-		{ {-10,-2,10},{0,-2,30},{10,-2,10} }
+		{ {-10,-2,10},{0,2,10},{10,-2,10} }
 	);
 	// this will cast the shadow
 	//triangles.push_back(
@@ -153,55 +161,58 @@ int main() {
 	//	{ {-.5,1,4},{0,4,10},{.5,1,4} }
 	//);
 
-//	vec3 origin = { 0,0,0 };
-//	vec3 dir = normalize({ 0, 0, 5 });
-//	PayLoad hit = castRay(origin, dir, 0);
-//	printf("%f %f %f %f\n", hit.point.x, hit.point.y, hit.point.z, hit.distance);
-//	
-//	vec3 light = { 0,10,0 };
-//	dir = normalize({ light.x - hit.point.x, light.y - hit.point.y, light.z - hit.point.z });
-//	printf("%f %f %f\n", dir.x, dir.y, dir.z);
-//	hit = castRay(hit.point, dir,0);
-//	printf("%f %f %f %f\n", hit.point.x, hit.point.y, hit.point.z, hit.distance);
-//
+
+	//printf("Initial cast\n");
+	//vec3 origin = { 0,0,0 };
+	//vec3 dir = normalize({ 0, 0, 5 });
+	//printf("starting at: %f %f %f towards %f %f %f\n", origin.x, origin.y, origin.z, dir.x, dir.y,dir.z);
+	//PayLoad hit = castRay(origin, dir, 1,NULL);
+	//printf("%f %f %f %f\n", hit.point.x, hit.point.y, hit.point.z, hit.distance);
+	//
+	//vec3 light = { 0,0,-10 };
+	//dir = normalize({ light.x - hit.point.x, light.y - hit.point.y, light.z - hit.point.z });
+	//origin = hit.point;
+	//printf("\nstarting at: %f %f %f towards %f %f %f\n", origin.x, origin.y, origin.z, dir.x, dir.y, dir.z);
+	////printf("%f %f %f\n", dir.x, dir.y, dir.z);
+	//hit = castRay(hit.point, dir,1,hit.cur);
+	//printf("%f %f %f %f\n", hit.point.x, hit.point.y, hit.point.z, hit.distance);
+
 //}
 
 	for (int j = 0; j < height; j++) {
 		for (int i = 0; i < width; i++) {
 			int index = i * height * 3 + j * 3;
 			vec3 dir = normalize({ (i - hWidth) / (float)width, -(j - hHeight) / (float)height, 1 });
-			vec3 origin = { 0,0,-5 };
-			PayLoad hit = castRay(origin, dir,0);
+			
+			vec3 origin = { 0,0,-10 };
+			PayLoad hit = castRay(origin, dir,0,NULL);
 			// we now need to see if the pixel is visible to the light source(which is 0,0,10)
 			//printf("%d %d\n", i, j);
-			if (hit.distance > 0) {
+			if (hit.didHit==true) {
+				//fprintf(file, "%d %d %d\n", 255, 255, 255);
 				//exit(1);
-				vec3 light = {0,10,4};
+				vec3 light = {0,0,-10};
 				vec3 dir2 = normalize({ light.x - hit.point.x, light.y - hit.point.y, light.z - hit.point.z });
 				//dir2.x *= -1;
 				//dir2.y *= -1;
 				//dir2.z *= -1;
 				//vec3 dir2 = {};
-				PayLoad hit2 = castRay(hit.point, dir2,0);
-				if (j == 94 && i == 250) {
-					//printf("(%f %f %f)\n", dir2.x, dir2.y, dir2.z);
-					//fprintf(file, "0 0 255\n");
-					//continue;
+				PayLoad hit2 = castRay(hit.point, dir2,0,hit.cur);
+				//printf("     %d  \n", hit2.didHit);
 
-				}
 				//printf("%f %f %f %f %f %f\n", hit.point.x, hit.point.y, hit.point.z, dir2.x, dir2.y, dir2.z);
 				//printf("%f  ", hit2.distance);
 				// no obstructions
-				if (hit2.distance < 0) {
-					//fprintf(file, "%d %d %d\n", 255, 255, 255);
+				if (hit2.didHit == false) {
+					fprintf(file, "%d %d %d\n", 255, 255, 255);
+					//printf("Hit\n");
 				}
 				else {
-					//fprintf(file, "%d %d %d\n", (int)0, (int)255, (int)0);
-					printf("Hit\n");
+					fprintf(file, "%d %d %d\n", (int)10, (int)10, (int)10);
 				}
 				float dist = magnitude(dir2);
 				//fprintf(file, "%d %d %d\n", (int)(255 * 1 / dist), (int)(255 * 1 / dist), (int)(255 * 1 / dist));
-				fprintf(file, "%d %d %d\n", i, j, 0);
+				//fprintf(file, "%d %d %d\n", i, j, 0);
 				
 			}
 			else {
