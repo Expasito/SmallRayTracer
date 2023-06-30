@@ -58,6 +58,13 @@ struct Triangle{
 };
 std::vector<Triangle> triangles;
 
+
+struct Light {
+	vec3 position;
+	float intensity;
+};
+std::vector<Light> lights;
+
 struct PayLoad {
 	vec3 point;
 	vec3 color;
@@ -83,7 +90,6 @@ PayLoad castRay(vec3 orgin, vec3 dir,int log, Triangle* curr) {
 		if (log) {
 			printf("   %p\n", &triangle);
 		}
-		
 		float t = dot(triangle.p1-orgin, triangle.n) / dot(dir, triangle.n);
 		if (log) {
 			printf("%f\n", t);
@@ -126,7 +132,11 @@ int main() {
 	FILE* file = fopen("Image.ppm", "w");
 	fprintf(file, "P3\n%d %d\n255\n", width, height);
 
-	// this will cast the shadow
+	//triangles.push_back(
+	//	{ {-1,-1,4},{0,1,4},{1,-1,4} }
+	//);
+
+
 	triangles.push_back(
 		{ {-.5,0,4},{0,4,5},{.5,2,4} }
 	);
@@ -139,46 +149,102 @@ int main() {
 		{ {-1,-1,7},{0,-1,9},{1,-1,7} }
 	);
 
+	triangles.push_back(
+		{ {1,-1,2},{2,0,4},{3,0,2} }
+	);
+
+	triangles.push_back(
+		{ {.5,-.5,2},{1,0,4},{1.5,0,2} }
+	);
+
+	lights.push_back(
+		{ {0,4,0},100 }
+	);
+	lights.push_back(
+		{ {0,6,4},255 }
+	);
+	lights.push_back(
+		{ {0,0,4},255 }
+	);
+
+	printf("%f %f %f\n", triangles.at(0).n.x,triangles.at(0).n.y, triangles.at(0).n.z);
 	for (int j = 0; j < height; j++) {
 		for (int i = 0; i < width; i++) {
 			int index = i * height * 3 + j * 3;
-			vec3 dir = normalize({ (i - hWidth) / (float)width, -(j - hHeight) / (float)height, 1 });
 			
-			vec3 origin = { 0,1,-5 };
+			vec3 dir;
+			vec3 origin;
+			// for first pass
+			dir = normalize({ (i - hWidth) / (float)width, -(j - hHeight) / (float)height, 1 });
+			origin = { 0,1,-5 };
+
 			PayLoad hit = castRay(origin, dir,0,NULL);
-			
-			if (hit.didHit==true) {
-	
-				vec3 light = {0,5,0};
-				vec3 dir2 = normalize({ light.x - hit.point.x, light.y - hit.point.y, light.z - hit.point.z });
 
-				PayLoad hit2 = castRay(hit.point, dir2,0,hit.cur);
-				//printf("     %d  \n", hit2.didHit);
+			vec3 color = { 0,0,0 };
+			if (hit.didHit == true) {
+				//color = { 100,100,100 };
+				for (Light& light : lights) {
+					origin = hit.point;
+					dir = normalize({ light.position.x - hit.point.x, light.position.y - hit.point.y, light.position.z - hit.point.z });
+					PayLoad hit_ = castRay(origin, dir, 0, hit.cur);
+					float dist = magnitude(light.position - hit.point);
+					// no collisions at all
+					if (hit_.didHit == false) {
+						//printf("%f\n", dist);
+						color.x += light.intensity/dist;
+						color.y += light.intensity/dist;
+						color.z += light.intensity/dist;
+					} // colission but after light
+					else if (hit_.didHit == true && hit_.distance > dist) {
+						color.x += light.intensity / dist;
+						color.y += light.intensity / dist;
+						color.z += light.intensity / dist;
+					}
 
-				//printf("%f %f %f %f %f %f\n", hit.point.x, hit.point.y, hit.point.z, dir2.x, dir2.y, dir2.z);
-				//printf("%f  ", hit2.distance);
-				float dist = magnitude({ light.x - hit.point.x, light.y - hit.point.y, light.z - hit.point.z });
-				dist = dist / 4;
-				// prevent the color value from being over 255
-				if (dist * dist < 1) {
-					dist = 1;
 				}
-
-
-				// no obstructions
-				if (hit2.didHit == false) {
-					fprintf(file, "%d %d %d\n", (int)(255 / (dist * dist)), (int)(255 / (dist * dist)), (int)(255 / (dist * dist)));
-
-				}
-				else {
-					fprintf(file, "%d %d %d\n", (int)(255 / (dist * dist)/2), (int)(255 / (dist * dist)/2), (int)(255 / (dist * dist)/2));
-				}
-
-				
 			}
 			else {
-				fprintf(file, "%d %d %d\n", (int)0, (int)0, 0);
+
 			}
+			if (color.x > 255) {
+				color = { 255,255,255 };
+			}
+
+			// now save color
+			fprintf(file, "%d %d %d\n", (int)color.x, (int)color.y, (int)color.z);
+			
+			//if (hit.didHit==true) {
+	
+			//	vec3 light = {0,4,0};
+			//	vec3 dir2 = normalize({ light.x - hit.point.x, light.y - hit.point.y, light.z - hit.point.z });
+
+			//	PayLoad hit2 = castRay(hit.point, dir2,0,hit.cur);
+			//	//printf("     %d  \n", hit2.didHit);
+
+			//	//printf("%f %f %f %f %f %f\n", hit.point.x, hit.point.y, hit.point.z, dir2.x, dir2.y, dir2.z);
+			//	//printf("%f  ", hit2.distance);
+			//	float dist = magnitude({ light.x - hit.point.x, light.y - hit.point.y, light.z - hit.point.z });
+			//	dist = dist / 4;
+			//	// prevent the color value from being over 255
+			//	if (dist * dist < 1) {
+			//		dist = 1;
+			//	}
+
+
+			//	// no obstructions
+			//	if (hit2.didHit == false) {
+			//		fprintf(file, "%d %d %d\n", (int)(255 / (dist * dist)), (int)(255 / (dist * dist)), (int)(255 / (dist * dist)));
+
+			//	}
+			//	else {
+			//		fprintf(file, "%d %d %d\n", (int)(255 / (dist * dist)/2), (int)(255 / (dist * dist)/2), (int)(255 / (dist * dist)/2));
+			//	}
+
+			//	
+			//}
+			//else {
+			//	fprintf(file, "%d %d %d\n", (int)0, (int)0, 0);
+			//}
 			
 		}
 	}
