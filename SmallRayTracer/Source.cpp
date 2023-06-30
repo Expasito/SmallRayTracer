@@ -92,7 +92,9 @@ PayLoad castRay(vec3 orgin, vec3 dir,int log, Triangle* curr) {
 		}
 		float t = dot(triangle.p1-orgin, triangle.n) / dot(dir, triangle.n);
 		if (log) {
-			printf("%f\n", t);
+			printf("t: %f\n", t);
+			printf("Top: %f\n", dot(triangle.p1 - orgin, triangle.n));
+			printf("Bottom: %f\n", dot(dir, triangle.n));
 		}
 		//printf("%f ", t);
 		vec3 I = { orgin.x+ t * dir.x,orgin.y+t * dir.y,orgin.z + t * dir.z };
@@ -106,7 +108,7 @@ PayLoad castRay(vec3 orgin, vec3 dir,int log, Triangle* curr) {
 			dot(triangle.n, cross(edge1, { I - triangle.p2 })) > 0.0 &&
 			dot(triangle.n, cross(edge2, { I - triangle.p3 })) > 0.0
 			) {
-			if (t < closest.distance && t > 0) {
+			if (t < closest.distance && t > 0.00001) {
 				//printf("here\n");
 				closest = { I,{100,0,0},t ,&triangle,true};
 				found = true;
@@ -137,35 +139,42 @@ int main() {
 	//);
 
 
-	triangles.push_back(
-		{ {-.5,0,4},{0,4,5},{.5,2,4} }
-	);
+	//triangles.push_back(
+	//	{ {-.5,0,4},{0,4,5},{.5,2,4} }
+	//);
 
 	triangles.push_back(
 		{ {-5,-2,-10},{0,-2,30},{5,-2,-10} }
 	);
 
+	//triangles.push_back(
+	//	{ {-1,-1,7},{0,-1,9},{1,-1,7} }
+	//);
+
+	//triangles.push_back(
+	//	{ {1,-1,2},{2,0,4},{3,0,2} }
+	//);
+
 	triangles.push_back(
-		{ {-1,-1,7},{0,-1,9},{1,-1,7} }
+		{ {1,-1,8},{2,1,8},{3,-1,8} }
 	);
 
 	triangles.push_back(
-		{ {1,-1,2},{2,0,4},{3,0,2} }
+		{ {-1,-1,3},{0,1,3},{1,-1,3} }
 	);
-
 	triangles.push_back(
-		{ {.5,-.5,2},{1,0,4},{1.5,0,2} }
+		{ {-1,-1,3.0001},{0,1,3.0001},{1,-1,3.0001} }
 	);
 
 	lights.push_back(
-		{ {0,4,0},100 }
+		{ {0,-1.9,5},255 }
 	);
-	lights.push_back(
-		{ {0,6,4},255 }
-	);
-	lights.push_back(
-		{ {0,0,4},255 }
-	);
+	//lights.push_back(
+	//	{ {0,6,4},255 }
+	//);
+	//lights.push_back(
+	//	{ {0,0,4},255 }
+	//);
 
 	printf("%f %f %f\n", triangles.at(0).n.x,triangles.at(0).n.y, triangles.at(0).n.z);
 	for (int j = 0; j < height; j++) {
@@ -182,11 +191,25 @@ int main() {
 
 			vec3 color = { 0,0,0 };
 			if (hit.didHit == true) {
-				//color = { 100,100,100 };
+				color = { 0,0,0 };
 				for (Light& light : lights) {
 					origin = hit.point;
 					dir = normalize({ light.position.x - hit.point.x, light.position.y - hit.point.y, light.position.z - hit.point.z });
 					PayLoad hit_ = castRay(origin, dir, 0, hit.cur);
+					if (i == 401 && j == 499) {
+						hit_ = castRay(origin, dir, 1, hit.cur);
+					}
+					else {
+						hit_ = castRay(origin, dir, 0, hit.cur);
+
+					}
+					if (i == 401 && j == 499) {
+						printf("%f %f %f\n", dir.x, dir.y, dir.z);
+						printf("%f\n", hit_.distance);
+						printf("%f %f %f\n", hit_.point.x, hit_.point.y, hit_.point.z);
+						
+
+					}
 					float dist = magnitude(light.position - hit.point);
 					// no collisions at all
 					if (hit_.didHit == false) {
@@ -202,9 +225,12 @@ int main() {
 					}
 
 				}
+				//if (color.x==255 && color.y==100 && color.z==100) {
+				//	printf("%d %d\n", i, j);
+				//}
 			}
 			else {
-
+				
 			}
 			if (color.x > 255) {
 				color = { 255,255,255 };
