@@ -4,6 +4,10 @@
 * Goal: Make a simple ray tracer in as few lines of code as possible.
 * 
 */
+
+
+// Added colors to triangles, working on some weird issues
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <vector>
@@ -50,7 +54,9 @@ struct Triangle{
 
 	vec3 edge0, edge1, edge2;
 
-	Triangle(vec3 p1_, vec3 p2_, vec3 p3_) {
+	vec3 color;
+
+	Triangle(vec3 p1_, vec3 p2_, vec3 p3_,vec3 color_) {
 		p1 = p1_; p2 = p2_; p3 = p3_;
 		// default to p1 here
 		p = p1;
@@ -60,6 +66,7 @@ struct Triangle{
 		edge0 = p2 - p1;
 		edge1 = p3 - p2;
 		edge2 = p1 - p3;
+		color = color_;
 	}
 
 };
@@ -118,7 +125,7 @@ PayLoad castRay(vec3 orgin, vec3 dir,int log, Triangle* curr) {
 			) {
 			if (t < closest.distance && t > 0.00001) {
 				//printf("here\n");
-				closest = { I,{100,0,0},t ,&triangle,true};
+				closest = { I,triangle.color,t ,&triangle,true};
 				found = true;
 			}
 		}
@@ -133,45 +140,53 @@ int main() {
 	fprintf(file, "P3\n%d %d\n255\n", width, height);
 
 	triangles.push_back(
-		{ {-1,-1,4},{0,1,4},{1,-1,4} }
+		{ {-1,-1,4},{0,1,4},{1,-1,4}, {255,0,0} }
 	);
 
 	triangles.push_back(
-		{ {-.5,0,4},{0,4,5},{.5,2,4} }
+		{ {-.5,0,4},{0,4,5},{.5,2,4}, {0,255,0} }
 	);
 
 	triangles.push_back(
-		{ {-5,-2,-10},{0,-2,30},{5,-2,-10} }
+		{ {-5,-2,-10},{0,-2,30},{5,-2,-10}, {0,0,255} }
 	);
 
 	triangles.push_back(
-		{ {-1,-1,7},{0,-1,9},{1,-1,7} }
+		{ {-1,-1,7},{0,-1,9},{1,-1,7},{255,255,0} }
 	);
 
 	triangles.push_back(
-		{ {1,-1,2},{2,0,4},{3,0,2} }
+		{ {1,-1,2},{2,0,4},{3,0,2}, {255,0,255} }
 	);
 
 	triangles.push_back(
-		{ {1,-1,8},{2,1,8},{3,-1,8} }
+		{ {1,-1,8},{2,1,8},{3,-1,8}, {0,255,255} }
 	);
 
 	triangles.push_back(
-		{ {-1,-1,3},{0,1,3},{1,-1,3} }
+		{ {-1,-1,3},{0,1,3},{1,-1,3}, {255,255,255} }
 	);
 	triangles.push_back(
-		{ {-1,-1,3.0001},{0,1,3.0001},{1,-1,3.0001} }
+		{ {-1,-1,3.0001},{0,1,3.0001},{1,-1,3.0001} ,{128,128,128} }
 	);
 
 	lights.push_back(
 		{ {1,4,5},255 }
 	);
-	//lights.push_back(
-	//	{ {0,6,4},255 }
-	//);
-	//lights.push_back(
-	//	{ {0,0,4},255 }
-	//);
+	lights.push_back(
+		{ {0,6,4},255 }
+	);
+	lights.push_back(
+		{ {0,0,4},255 }
+	);
+
+	lights.push_back(
+		{ {-4,4,-4},160 }
+	);
+
+	lights.push_back(
+		{ {0,0,0},240 }
+	);
 
 	std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
 
@@ -186,33 +201,43 @@ int main() {
 			origin = { 0,1,-5 };
 
 			PayLoad hit = castRay(origin, dir,0,NULL);
-
 			vec3 color = { 0,0,0 };
 			// we only care if it hit
 			if (hit.didHit == true) {
 				color = { 0,0,0 };
+				// now check for if the area is in a shadow or not
 				for (Light& light : lights) {
 					origin = hit.point;
 					dir = normalize({ light.position.x - hit.point.x, light.position.y - hit.point.y, light.position.z - hit.point.z });
 					PayLoad hit_ = castRay(origin, dir, 0, hit.cur);
 					float dist = magnitude(light.position - hit.point);
-					// no collisions at all
-					if (hit_.didHit == false) {
-						color.x += light.intensity/dist;
-						color.y += light.intensity/dist;
-						color.z += light.intensity/dist;
-					} // colission but after hitting the light
-					else if (hit_.didHit == true && hit_.distance > dist) {
-						color.x += light.intensity / dist;
-						color.y += light.intensity / dist;
-						color.z += light.intensity / dist;
+					dist *= dist;
+					// no collisions at all OR collision but after hitting the light
+					if (hit_.didHit == false || (hit_.didHit == true && hit_.distance > dist)) {
+						color.x += light.intensity/dist * hit.color.x/255.0;
+						color.y += light.intensity/dist * hit.color.y/255.0;
+						color.z += light.intensity/dist * hit.color.z/255.0;
 					}
 
 				}
 			}
+			// we divide by 255 because we multiply by upto 255, so we are scaling it back down
+			//color.x /= 255.0;
+			//color.y /= 255.0;
+			//color.z /= 255.0;
+
+
 			if (color.x > 255) {
-				color = { 255,255,255 };
+				color.x = 255;
 			}
+			if (color.y > 255) {
+				color.y = 255;
+			}
+			if (color.z > 255) {
+				color.z = 255;
+			}
+
+
 
 			// now save color
 			fprintf(file, "%d %d %d\n", (int)color.x, (int)color.y, (int)color.z);
